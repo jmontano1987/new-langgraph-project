@@ -1,10 +1,10 @@
-"""LangGraph single-node graph template con invocación a un LLM con streaming."""
+"""LangGraph single-node graph template con invocación a un LLM."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from langgraph.graph.message import add_messages
-from typing import Annotated, AsyncGenerator, Dict, Any
+from typing import Any, Dict, Annotated
 
 from langgraph.graph import StateGraph
 from langgraph.runtime import Runtime
@@ -20,6 +20,7 @@ class Context(TypedDict):
 # -------- Estado --------
 @dataclass
 class State:
+    #changeme: str = "Hola, esto es un ejemplo."
     messages: Annotated[list, add_messages]
 
 
@@ -27,26 +28,20 @@ class State:
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
 
 
-# -------- Nodo que invoca el modelo (STREAMING) --------
-async def call_model(
-    state: State,
-    runtime: Runtime[Context]
-) -> AsyncGenerator[Dict[str, Any], None]:
-    """Invoca el LLM en streaming y va emitiendo tokens a medida que llegan."""
-    # Usamos astream para recibir chunks incrementales
-    async for chunk in llm.astream(state.messages):
-        if chunk.content:  # Filtramos tokens vacíos
-            yield {
-                "messages": [
-                    {"role": "assistant", "content": chunk.content}
-                ]
-            }
-
+# -------- Nodo que invoca el modelo --------
+async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
+    """Invoca el LLM con el contenido de state.changeme."""
+    response = llm.invoke(state.messages)
+    return {
+        "messages": [
+            {"role": "assistant", "content": response.content}
+        ]
+    }
 
 # -------- Definición del grafo --------
 graph = (
     StateGraph(State, context_schema=Context)
     .add_node(call_model)
     .add_edge("__start__", "call_model")
-    .compile(name="agent")   # 👈 este nombre debe coincidir con el usado en el SDK
+    .compile(name="LLM Graph")
 )
