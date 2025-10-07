@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from langgraph.graph.message import add_messages
+from typing import Any, Dict, Annotated
 
 from langgraph.graph import StateGraph
 from langgraph.runtime import Runtime
@@ -19,7 +20,8 @@ class Context(TypedDict):
 # -------- Estado --------
 @dataclass
 class State:
-    changeme: str = "Hola, esto es un ejemplo."
+    #changeme: str = "Hola, esto es un ejemplo."
+    messages: Annotated[list, add_messages]
 
 
 # -------- Modelo LLM --------
@@ -29,10 +31,12 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
 # -------- Nodo que invoca el modelo --------
 async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
     """Invoca el LLM con el contenido de state.changeme."""
-    prompt = state.changeme
-    response = llm.invoke(prompt)
-    return {"changeme": response.content}
-
+    response = llm.invoke(state.messages)
+    return {
+        "messages": [
+            {"role": "assistant", "content": response.content}
+        ]
+    }
 
 # -------- Definición del grafo --------
 graph = (
